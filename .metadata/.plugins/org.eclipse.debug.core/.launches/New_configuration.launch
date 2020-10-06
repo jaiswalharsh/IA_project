@@ -11,6 +11,6 @@
     <booleanAttribute key="org.eclipse.jdt.launching.ATTR_USE_START_ON_FIRST_THREAD" value="true"/>
     <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="logist.LogistPlatform"/>
     <stringAttribute key="org.eclipse.jdt.launching.MODULE_NAME" value="reactive"/>
-    <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="config/reactive.xml reactive-random reactive-random"/>
+    <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="config/reactive.xml reactive-random"/>
     <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="reactive"/>
 </launchConfiguration>
