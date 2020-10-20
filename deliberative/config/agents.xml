@@ -5,9 +5,22 @@
 	
 	<!-- #### DELIBERATIVE AGENTS ### -->
 	<agent name="deliberative-random">
-		<set class-path="bin/"/>
+		<set class-path="build/"/>
 		<set class-name="template.DeliberativeTemplate"/>
 		<set algorithm="BFS"/>
 	</agent>
+
+	<agent name="deliberative-bfs">
+		<set class-path="build/"/>
+		<set class-name="template.DeliberativeTemplate"/>
+		<set algorithm="BFS"/>
+	</agent>
+
+	<agent name="deliberative-astar">
+		<set class-path="build/"/>
+		<set class-name="template.DeliberativeTemplate"/>
+		<set algorithm="ASTAR"/>
+	</agent>
+
 	
 </agents>
