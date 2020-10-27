@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="D:/EPFL_sem_3/IntelligentAgents/Workspace/centralized/logist/logist.jar"/>
+	<classpathentry kind="lib" path="D:/EPFL_sem_3/IntelligentAgents/Workspace/centralized/logist/lib/colt.jar"/>
+	<classpathentry kind="lib" path="D:/EPFL_sem_3/IntelligentAgents/Workspace/centralized/logist/lib/commons-math-1.1.jar"/>
+	<classpathentry kind="lib" path="D:/EPFL_sem_3/IntelligentAgents/Workspace/centralized/logist/lib/jdom.jar"/>
+	<classpathentry kind="lib" path="D:/EPFL_sem_3/IntelligentAgents/Workspace/centralized/logist/lib/jsolver.jar"/>
+	<classpathentry kind="lib" path="D:/EPFL_sem_3/IntelligentAgents/Workspace/centralized/logist/lib/plot.jar"/>
+	<classpathentry kind="lib" path="D:/EPFL_sem_3/IntelligentAgents/Workspace/centralized/logist/lib/repast.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
