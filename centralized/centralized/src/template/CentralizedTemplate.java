@@ -63,25 +63,16 @@ public class CentralizedTemplate implements CentralizedBehavior {
     	State bestState = init;
     	Boolean converged = false;
     	double prevCost = bestState.objectiveFunction();
-    	int counter = 0;
-//    	System.out.println("previous cost:"+prevCost);
-//    	System.out.println("Initial State:");
-//    	bestState.printState();
     	while(!converged) {
-    		State newbestState = bestState.lookAround();
-    		double newCost  = newbestState.objectiveFunction();
-//    		System.out.println((newCost-prevCost));
-    		counter++; 
-        	System.out.println("New Cost" + newCost);
-    		System.out.println("State:" + counter);
-    		newbestState.printState();
-    		if (newCost-prevCost > -0.1)
+    		bestState = bestState.lookAround();
+    		double newCost  = bestState.objectiveFunction();
+    		
+    		System.out.println((newCost-prevCost));
+    		if (prevCost-newCost < 0.1)
     			break;
-    		prevCost=newCost;
-    		bestState=newbestState;
+    		
     	}
-    	System.out.println("The no. of states visited:" + counter);
-    	bestState.printStateFull();
+    	
     	return bestState;
     }
 
@@ -96,8 +87,6 @@ public class CentralizedTemplate implements CentralizedBehavior {
         for (int i=0; i < vehicles.size(); i++) {
         	taskList[i] = new LinkedList<Task>();	
         }
-        //tasks are indexed from 1
-        
         int[] time = new int[tasks.size()];
         int[] vehicle = new int[tasks.size()];
         
