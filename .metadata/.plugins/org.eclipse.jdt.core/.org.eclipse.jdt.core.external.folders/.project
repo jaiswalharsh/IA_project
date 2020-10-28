@@ -14,5 +14,10 @@
 			<type>2</type>
 			<location>D:/EPFL_sem_3/IntelligentAgents/Workspace/logist</location>
 		</link>
+		<link>
+			<name>.link2</name>
+			<type>2</type>
+			<location>D:/EPFL_sem_3/IntelligentAgents/Workspace/centralized/logist</location>
+		</link>
 	</linkedResources>
 </projectDescription>
