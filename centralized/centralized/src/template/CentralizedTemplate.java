@@ -5,7 +5,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Random;
+
 import logist.LogistSettings;
 
 import logist.Measures;
@@ -34,11 +34,11 @@ public class CentralizedTemplate implements CentralizedBehavior {
     private Agent agent;
     private long timeout_setup;
     private long timeout_plan;
-    
+
     @Override
     public void setup(Topology topology, TaskDistribution distribution,
-            Agent agent) {
-        
+                      Agent agent) {
+
         // this code is used to get the timeouts
         LogistSettings ls = null;
         try {
@@ -47,74 +47,83 @@ public class CentralizedTemplate implements CentralizedBehavior {
         catch (Exception exc) {
             System.out.println("There was a problem loading the configuration file.");
         }
-        
+
         // the setup method cannot last more than timeout_setup milliseconds
         timeout_setup = ls.get(LogistSettings.TimeoutKey.SETUP);
         // the plan method cannot execute more than timeout_plan milliseconds
         timeout_plan = ls.get(LogistSettings.TimeoutKey.PLAN);
-        
+
         this.topology = topology;
         this.distribution = distribution;
         this.agent = agent;
     }
-    
+
     private State solutionSearch(State init) {
-    	
-    	State bestState = init;
-    	Boolean converged = false;
-    	double prevCost = bestState.objectiveFunction();
-    	int counter = 0;
-//    	System.out.println("previous cost:"+prevCost);
-//    	System.out.println("Initial State:");
-//    	bestState.printState();
-    	while(!converged) {
-    		State newbestState = bestState.lookAround();
-    		double newCost  = newbestState.objectiveFunction();
-//    		System.out.println((newCost-prevCost));
-    		counter++; 
-        	System.out.println("New Cost" + newCost);
-    		System.out.println("State:" + counter);
-    		newbestState.printState();
-    		if (newCost-prevCost > -0.1)
-    			break;
-    		prevCost=newCost;
-    		bestState=newbestState;
-    	}
-    	System.out.println("The no. of states visited:" + counter);
-    	bestState.printStateFull();
-    	return bestState;
+
+        State bestState = init;
+        Boolean converged = false;
+        double prevCost = bestState.objectiveFunction();
+        State newState = bestState;
+        int counter = 0;
+        double globalBest = prevCost;
+
+        while(!converged) {
+            newState = newState.lookAround();
+            double newCost  = newState.objectiveFunction();
+
+
+            counter++;
+            System.out.println("New Cost" + newCost);
+            System.out.println("State:" + counter);
+            newState.printState();
+            //over - search
+
+
+
+            if (newCost < globalBest) {
+                globalBest = newCost;
+                bestState = newState;
+            }
+            if ((newCost-prevCost)/prevCost > 0.01)
+                break;
+            prevCost=newCost;
+        }
+        System.out.println("The no. of states visited:" + counter);
+        System.out.println("Cost:" + globalBest);
+        bestState.printState();
+        return bestState;
     }
 
     @Override
     public List<Plan> plan(List<Vehicle> vehicles, TaskSet tasks) {
-    	
-    	State.initStatic(topology, tasks.size(), vehicles);
-    	
+
+        State.initStatic(topology, tasks.size(), vehicles);
+
         long time_start = System.currentTimeMillis();
-        
+
         LinkedList<Task>[] taskList = new LinkedList[vehicles.size()];
         for (int i=0; i < vehicles.size(); i++) {
-        	taskList[i] = new LinkedList<Task>();	
+            taskList[i] = new LinkedList<Task>();
         }
         //tasks are indexed from 1
-        
+
         int[] time = new int[tasks.size()];
         int[] vehicle = new int[tasks.size()];
-        
+
         int i = 0;
         for (Task task: tasks) {
-        	time[i] = i;
-        	vehicle[i] = 0;
-        	taskList[0].push(task);
-        	i++;
+            time[i] = i;
+            vehicle[i] = 0;
+            taskList[0].push(task);
+            i++;
         }
 
-        
-        
+
+
         State initialState = new State(taskList, vehicle, time);
         solutionSearch(initialState);
-        
-        
+
+
 //		System.out.println("Agent " + agent.id() + " has tasks " + tasks);
         Plan planVehicle1 = naivePlan(vehicles.get(0), tasks);
 
@@ -123,11 +132,11 @@ public class CentralizedTemplate implements CentralizedBehavior {
         while (plans.size() < vehicles.size()) {
             plans.add(Plan.EMPTY);
         }
-        
+
         long time_end = System.currentTimeMillis();
         long duration = time_end - time_start;
         System.out.println("The plan was generated in " + duration + " milliseconds.");
-        
+
         return plans;
     }
 
