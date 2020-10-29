@@ -3,6 +3,7 @@ package template;
 import java.io.File;
 //the list of imports
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -35,6 +36,8 @@ public class CentralizedTemplate implements CentralizedBehavior {
     private long timeout_setup;
     private long timeout_plan;
 
+
+
     @Override
     public void setup(Topology topology, TaskDistribution distribution,
                       Agent agent) {
@@ -50,6 +53,7 @@ public class CentralizedTemplate implements CentralizedBehavior {
 
         // the setup method cannot last more than timeout_setup milliseconds
         timeout_setup = ls.get(LogistSettings.TimeoutKey.SETUP);
+
         // the plan method cannot execute more than timeout_plan milliseconds
         timeout_plan = ls.get(LogistSettings.TimeoutKey.PLAN);
 
@@ -64,18 +68,32 @@ public class CentralizedTemplate implements CentralizedBehavior {
         Boolean converged = false;
         double prevCost = bestState.objectiveFunction();
         State newState = bestState;
+        State prevState = null;
         int counter = 0;
         double globalBest = prevCost;
 
+
+        State.visited.add(newState);
+
         while(!converged) {
+            //reset visited Table...
+//            if (counter%100 == 0) {
+//                State.visited = new HashSet<>();
+//                State.visited.add(newState);
+//            }
             newState = newState.lookAround();
+            if (newState == prevState)
+                break;
             double newCost  = newState.objectiveFunction();
 
 
             counter++;
             System.out.println("New Cost" + newCost);
             System.out.println("State:" + counter);
-            newState.printState();
+//            System.out.println("Hash Table Size:" + State.visited.size());
+//
+//
+//            newState.printState();
             //over - search
 
 
@@ -86,7 +104,8 @@ public class CentralizedTemplate implements CentralizedBehavior {
             }
             if ((newCost-prevCost)/prevCost > 0.01)
                 break;
-            prevCost=newCost;
+            prevCost = newCost;
+            prevState = newState;
         }
         System.out.println("The no. of states visited:" + counter);
         System.out.println("Cost:" + globalBest);
@@ -97,7 +116,7 @@ public class CentralizedTemplate implements CentralizedBehavior {
     @Override
     public List<Plan> plan(List<Vehicle> vehicles, TaskSet tasks) {
 
-        State.initStatic(topology, tasks.size(), vehicles);
+        State.initStatic(topology, tasks, vehicles);
 
         long time_start = System.currentTimeMillis();
 
@@ -109,6 +128,7 @@ public class CentralizedTemplate implements CentralizedBehavior {
 
         int[] time = new int[tasks.size()];
         int[] vehicle = new int[tasks.size()];
+        int[][] wv = null;//new int[tasks.size()][tasks.size()];
 
         int i = 0;
         for (Task task: tasks) {
@@ -120,7 +140,7 @@ public class CentralizedTemplate implements CentralizedBehavior {
 
 
 
-        State initialState = new State(taskList, vehicle, time);
+        State initialState = new State(taskList, vehicle, time, wv);
         solutionSearch(initialState);
 
 

@@ -5,6 +5,7 @@ import java.lang.Math;
 
 import logist.simulation.Vehicle;
 import logist.task.Task;
+import logist.task.TaskSet;
 import logist.topology.Topology;
 import logist.topology.Topology.City;
 
@@ -15,17 +16,50 @@ public class State implements Cloneable{
     public static int numTasks;
     public static int numVehicles;
     public static List<Vehicle> vehicles;
+    public static TaskSet tasks;
 
     public static HashSet<State> visited;
 
+    public static HashMap<Task, Set<Task>> inDeliveryPickups;
+    public static HashMap<Task, Set<Task>> inPickupPickups;
 
 
-    static void initStatic(Topology topology, int numTasks, List<Vehicle> vehicles) {
+
+
+    static void initStatic(Topology topology, TaskSet tasks, List<Vehicle> vehicles) {
         State.topology = topology;
-        State.numTasks = numTasks;
+        State.tasks = tasks;
+        State.numTasks = tasks.size();
         State.numVehicles = vehicles.size();
         State.vehicles = vehicles;
         visited = new HashSet<State>();
+
+        irpCompute();
+    }
+
+    static private void irpCompute() {
+        inDeliveryPickups = new HashMap<>();
+        inPickupPickups = new HashMap<>();
+
+
+        for (Task t: tasks) {
+            List<City> dpath = t.pickupCity.pathTo(t.deliveryCity);
+
+            Set<Task> ts = new HashSet<Task>();
+            for (Task t1: tasks) {
+                if (t.equals(t1))
+                    continue;
+                if (dpath.contains(t1.pickupCity))
+                    ts.add(t1);
+            }
+
+
+            inDeliveryPickups.put(t, ts);
+
+        }
+
+
+
     }
 
 
@@ -35,6 +69,8 @@ public class State implements Cloneable{
     public LinkedList<Task> [] taskList;
     public int[] vehicle; //Maps tasks to vehicle
     public int[] time; // Maps tasks to tasks
+
+    public int[][] weightMatrix;
 
 
     public Task next(Vehicle t) {
@@ -52,10 +88,11 @@ public class State implements Cloneable{
 
 
 
-    public State(LinkedList<Task> [] tasklist, int[]vehicle, int[]time) {
+    public State(LinkedList<Task> [] tasklist, int[]vehicle, int[]time, int[][] wm) {
         this.taskList = tasklist;
         this.vehicle = vehicle;
         this.time = time;
+        this.weightMatrix = wm;
 
     }
 
@@ -126,6 +163,12 @@ public class State implements Cloneable{
         //now return the best option
         State newState = this.clone();
 
+        //if all neighbors are visited
+        //this shouldnt really happen
+        if (i1 == -1) {
+            return this;
+        }
+
         double cnew;
         if (!moved) {
             //
@@ -159,9 +202,11 @@ public class State implements Cloneable{
             c = objectiveFunction();
             visited.add(this.clone());
         }
-        if (keep)
-            return c;
 
+        if (keep) {
+            System.out.println(String.format("move (%d, %d, %d)", oldPos, newPos, vehiclePos));
+            return c;
+        }
 
 
         //undo swaps
@@ -201,8 +246,10 @@ public class State implements Cloneable{
             visited.add(this.clone());
         }
 
-        if (keep)
+        if (keep) {
+            System.out.println(String.format("swap (%d, %d, %d, %d)", oldV, newV, pos, newpos));
             return c;
+        }
 
 
         //undo
@@ -216,15 +263,44 @@ public class State implements Cloneable{
 
     double objectiveFunction() {
         double sum = 0.0;
+
         for (int i=0; i < State.numVehicles; i++) {
             Vehicle v =  State.vehicles.get(i);
             City currentCity = v.getCurrentCity();
-            for (final Task t: taskList[i]) {
+            int weight = 0;
+            int maxweight = vehicles.get(i).capacity();
+            Set<Integer> carried = new HashSet<>();
+            for (int j=0; j < taskList[i].size(); j++) {
+                Task t = taskList[i].get(j);
+                //check if tasks can picked
+
+                weight += t.weight;
+                Set<Task> possiblePickups = inDeliveryPickups.get(t);
+                int rem = possiblePickups.size();
+                //possibly inverse this function
+                for(int k=j+1;k < taskList[i].size() && rem > 0; k++) {
+                   Task t2 = taskList[i].get(k);
+                   if (possiblePickups.contains(t2) && (t2.weight + weight < maxweight)) {
+                       carried.add(t2.id);
+                       weight += t2.weight;
+                       rem--;
+                   }
+                }
+
+
+
+
                 City nextCity = t.pickupCity;
                 City deliveryCity = t.deliveryCity;
+                if (carried.contains(t.id)) {
+                    sum += currentCity.distanceTo(deliveryCity)*v.costPerKm();
+                    carried.remove(t);
 
-                sum += (currentCity.distanceTo(nextCity) + nextCity.distanceTo(deliveryCity))*v.costPerKm();
+                }
+                else
+                    sum += (currentCity.distanceTo(nextCity) + nextCity.distanceTo(deliveryCity))*v.costPerKm();
 
+                weight -= t.weight;
                 currentCity = deliveryCity;
             }
         }
@@ -239,6 +315,9 @@ public class State implements Cloneable{
     public State clone()  {
         int[] timeNew = time.clone();
         int[] vehNew = vehicle.clone();
+        int[][] wv = null;
+        if (weightMatrix != null)
+            wv = weightMatrix.clone();
 
         LinkedList<Task>[] tlnew = taskList.clone();
 
@@ -247,7 +326,7 @@ public class State implements Cloneable{
             tlnew[i] = (LinkedList<Task>)taskList[i].clone();
 
         }
-        return new State(tlnew, vehNew, timeNew);
+        return new State(tlnew, vehNew, timeNew, wv);
     }
     @Override
     public int hashCode() {
