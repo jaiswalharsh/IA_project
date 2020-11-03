@@ -23,7 +23,9 @@ public class State implements Cloneable{
     public static HashMap<Task, Set<Task>> inDeliveryPickups;
     public static HashMap<Task, Set<Task>> inPickupPickups;
 
+    private static Random rand;
 
+    final private static double prob = 0.7;
 
 
     static void initStatic(Topology topology, TaskSet tasks, List<Vehicle> vehicles) {
@@ -33,7 +35,7 @@ public class State implements Cloneable{
         State.numVehicles = vehicles.size();
         State.vehicles = vehicles;
         visited = new HashSet<State>();
-
+        rand = new Random();
         irpCompute();
     }
 
@@ -66,19 +68,18 @@ public class State implements Cloneable{
     //////////////////////////////////////////////
     /////////////////////////////////////////////
 
-    public LinkedList<Task> [] taskList;
+    public LinkedList<HalfTask> [] taskList;
     public int[] vehicle; //Maps tasks to vehicle
-    public int[] time; // Maps tasks to tasks
 
     public int[][] weightMatrix;
 
 
-    public Task next(Vehicle t) {
+    public HalfTask next(Vehicle t) {
         return taskList[t.id()].get(0);
     }
 
-    public Task next(Task t) {
-        LinkedList<Task> temp =  taskList[vehicle[t.id]];
+    public HalfTask next(HalfTask t) {
+        LinkedList<HalfTask> temp =  taskList[vehicle[t.task.id]];
         //TODO use iterator because this does twice as much
 
         return temp.get(temp.indexOf(t)+1);
@@ -88,10 +89,9 @@ public class State implements Cloneable{
 
 
 
-    public State(LinkedList<Task> [] tasklist, int[]vehicle, int[]time, int[][] wm) {
+    public State(LinkedList<HalfTask> [] tasklist, int[]vehicle,  int[][] wm) {
         this.taskList = tasklist;
         this.vehicle = vehicle;
-        this.time = time;
         this.weightMatrix = wm;
 
     }
@@ -103,65 +103,89 @@ public class State implements Cloneable{
 
         double minc = Double.POSITIVE_INFINITY;
         //info on what swap to do here , its bad we know...
-        int i1 = -1,i2 = -1 , i3 = -1, i4 = -1;
-        boolean moved = false;
+        int i1 = -1, i2 = -1, i3 = -1, i4 = -1;
+        boolean swapped = true;
         //this is weird but ok
 
         int totalSwaps = 0;
 
-
-		for (int v=0; v < vehicles.size(); v++) {
-			int taskSize = taskList[v].size();
-			LinkedList<Task> list =  taskList[v];
-			for (int j=0; j < taskSize ; j++) {
-				for (int k=j+1; k < taskSize; k++) {
-					//swap time
-
-					double cost = swapPositionsEvaluate(j, k, v, false);
-					if (minc > cost) {
-						minc = cost;
-						i1 = j;
-						i2 = k;
-						i3 = v;
-
-					}
-                    totalSwaps++;
-					//max  calc etc.
-				}
-			}
-		}
+        //calculate probability here
 
 
-        for (int v=0; v < vehicles.size(); v++) {
-            int taskSize = taskList[v].size();
-            for (int j=0; j < taskSize ; j++) {
-                for(int vNew=v+1;  vNew < vehicles.size();  vNew++) {
-                    for (int k=0; k < taskList[vNew].size()+1; k++) {
+        int v = rand.nextInt(numVehicles);
+        int taskSize = taskList[v].size();
+        if (Math.random() > State.prob && taskSize > 0) {
+            int v2 = (v + rand.nextInt(numVehicles-1)+1)%numVehicles;
+            double cost = swapVehiclesEvaluate(v, v2, rand.nextInt(taskSize), -1, true);
+            if (Double.isFinite(cost))
+                return this;
+        }
 
-                        double cost = swapVehiclesEvaluate(v, vNew, j, k,false);
-                        //System.out.println(cost);
+        int j;
+        for (j = 0; j < taskSize; j++) {
+            if (taskList[v].get(j).type == 1)
+                continue;
 
-                        if (minc > cost) {
-                            minc = cost;
-                            i1 = v;
-                            i2 = vNew;
-                            i3 = j;
-                            i4 = k;
-                            moved = true;
 
-                        }
-                        totalSwaps++;
+            j = rand.nextInt(taskSize);
+
+            for (int vNew = 0; vNew < vehicles.size(); vNew++) {
+                if (v == vNew)
+                    continue;
+
+                    double cost = swapVehiclesEvaluate(v, vNew, j, -1, false);
+                    //System.out.println(cost);
+
+                    if (minc > cost) {
+                        minc = cost;
+                        i1 = v;
+                        i2 = vNew;
+                        i3 = j;
+                        i4 = -1;
+
                     }
+                    totalSwaps++;
 
+            }
+        }
+
+
+            v = rand.nextInt(numVehicles);
+            taskSize = taskList[v].size();
+            LinkedList<HalfTask> list = taskList[v];
+            for (j = 0; j < taskSize; j++) {
+                HalfTask ht = taskList[v].get(j).otherHalf;
+
+                int otherIndex = taskList[v].indexOf(ht);
+                int limit = -1;
+                if (ht.type == 0) {
+                    limit = otherIndex;
+                }
+                for (int k = j + 1; k < taskSize && k != limit; k++) {
+                    //swap time
+
+
+                    double cost = swapPositionsEvaluate(j, k, v, false);
+                    if (minc > cost) {
+                        minc = cost;
+                        i1 = j;
+                        i2 = k;
+                        i3 = v;
+                        swapped = false;
+
+                    }
+                    totalSwaps++;
+                    //max  calc etc.
                 }
             }
 
-        }
 
-        System.out.println("Performed : "+ totalSwaps);
-        System.out.println("Min weight : "+minc);
+
+
+//        System.out.println("Performed : "+ totalSwaps);
+//        System.out.println("Min cost : "+minc);
         //now return the best option
-        State newState = this.clone();
+        State newState = this;
 
         //if all neighbors are visited
         //this shouldnt really happen
@@ -170,7 +194,7 @@ public class State implements Cloneable{
         }
 
         double cnew;
-        if (!moved) {
+        if (!swapped) {
             //
 
             cnew = newState.swapPositionsEvaluate(i1, i2, i3, true);
@@ -181,39 +205,43 @@ public class State implements Cloneable{
 
         }
 
-        assert(Math.abs(cnew-minc) < 0.00001):"Assertion failed";
+        if(Math.abs(cnew-minc) > 0.00001) {
+            System.out.println(cnew);
+            System.out.println(minc);
+            System.out.println("Something went wrong!");
+        }
         return newState;
     }
 
 
     double swapPositionsEvaluate(int oldPos, int newPos, int vehiclePos, boolean keep) {
-        LinkedList<Task> list = taskList[vehiclePos];
-        int temp = time[list.get(oldPos).id];
-        time[list.get(oldPos).id] = time[list.get(newPos).id];
-        time[list.get(newPos).id] = temp;
+        LinkedList<HalfTask> list = taskList[vehiclePos];
+
         //swap the order
         Collections.swap(list, oldPos, newPos);
 
+        HalfTask h1 = list.get(newPos);
+        HalfTask h2 = list.get(oldPos);
 
+        //this.printState();
 
-        //TODO compute cost here!
         double c = Double.POSITIVE_INFINITY;
-        if (!visited.contains(this) || keep) {
-            c = objectiveFunction();
-            visited.add(this.clone());
-        }
 
-        if (keep) {
-            System.out.println(String.format("move (%d, %d, %d)", oldPos, newPos, vehiclePos));
+        //uncomment to enable visited functionality
+//        if (!visited.contains(this) || keep) {
+//            if (this.constraintCheck(vehiclePos))
+//                c = objectiveFunction();
+//            visited.add(this.clone());
+//        }
+        if (this.constraintCheck(vehiclePos))
+            c = objectiveFunction();
+
+        if (keep && Double.isFinite(c)) {
+            //System.out.println(String.format("move (%d, %d, %d)", oldPos, newPos, vehiclePos));
             return c;
         }
-
-
         //undo swaps
         Collections.swap(list, oldPos, newPos);
-        temp = time[list.get(oldPos).id];
-        time[list.get(oldPos).id] = time[list.get(newPos).id];
-        time[list.get(newPos).id] = temp;
         return c;
     }
     //use this to test that lists work correctly
@@ -229,34 +257,51 @@ public class State implements Cloneable{
     }
 
     double swapVehiclesEvaluate(int oldV, int newV, int pos, int newpos, boolean keep) {
-        LinkedList<Task> listOld =  taskList[oldV];
-        LinkedList<Task> listNew =  taskList[newV];
-
+        LinkedList<HalfTask> listOld =  taskList[oldV];
+        LinkedList<HalfTask> listNew =  taskList[newV];
+        if (newpos == -1)
+            newpos = listNew.size();
 
         //remove the task from beggining
-        final Task t = listOld.remove(pos);
-        listNew.add(newpos,t);
-        time[t.id] = newpos;
-        vehicle[t.id] = newV;
+        HalfTask t = listOld.remove(pos);
+        HalfTask ot = t.otherHalf;
+        int otherIndex = listOld.indexOf(ot);
+        listOld.remove(ot);
+
+        int newposOther = newpos;
+        if (t.type == 1) {
+            listNew.add(ot);
+            listNew.add(t);
+        }
+        else {
+            listNew.add(t);
+            listNew.add(ot);
+        }
+
+
+
+
+        vehicle[t.task.id] = newV;
 
         //compute the cost, save max etc, etc
         double c = Double.POSITIVE_INFINITY;
-        if (!visited.contains(this) || keep) {
-            c = objectiveFunction();
-            visited.add(this.clone());
-        }
 
-        if (keep) {
-            System.out.println(String.format("swap (%d, %d, %d, %d)", oldV, newV, pos, newpos));
+        if (constraintCheck(newV))
+            c = objectiveFunction();
+
+        if (keep&& Double.isFinite(c)) {
+            //System.out.println(String.format("swap (%d, %d, %d, %d)", oldV, newV, pos, newpos));
             return c;
         }
 
 
         //undo
-        listNew.remove(newpos);
+        listNew.remove(t);
+        listNew.remove(ot);
+
+
+        listOld.add(otherIndex, ot);
         listOld.add(pos, t);
-        time[t.id] = pos;
-        vehicle[t.id] = oldV;
 
         return c;
     }
@@ -264,77 +309,70 @@ public class State implements Cloneable{
     double objectiveFunction() {
         double sum = 0.0;
 
-        for (int i=0; i < State.numVehicles; i++) {
-            Vehicle v =  State.vehicles.get(i);
+        for (int i=0; i < taskList.length; i++) {
+            LinkedList<HalfTask> tl = taskList[i];
+            Vehicle v = vehicles.get(i);
             City currentCity = v.getCurrentCity();
-            int weight = 0;
-            int maxweight = vehicles.get(i).capacity();
-            Set<Integer> carried = new HashSet<>();
-            for (int j=0; j < taskList[i].size(); j++) {
-                Task t = taskList[i].get(j);
-                //check if tasks can picked
+            for (HalfTask ht: tl) {
+                sum += currentCity.distanceTo(ht.city)*v.costPerKm();
+                currentCity = ht.city;
 
-                weight += t.weight;
-                Set<Task> possiblePickups = inDeliveryPickups.get(t);
-                int rem = possiblePickups.size();
-                //possibly inverse this function
-                for(int k=j+1;k < taskList[i].size() && rem > 0; k++) {
-                   Task t2 = taskList[i].get(k);
-                   if (possiblePickups.contains(t2) && (t2.weight + weight < maxweight)) {
-                       carried.add(t2.id);
-                       weight += t2.weight;
-                       rem--;
-                   }
-                }
-
-
-
-
-                City nextCity = t.pickupCity;
-                City deliveryCity = t.deliveryCity;
-                if (carried.contains(t.id)) {
-                    sum += currentCity.distanceTo(deliveryCity)*v.costPerKm();
-                    carried.remove(t);
-
-                }
-                else
-                    sum += (currentCity.distanceTo(nextCity) + nextCity.distanceTo(deliveryCity))*v.costPerKm();
-
-                weight -= t.weight;
-                currentCity = deliveryCity;
             }
-        }
-//		System.out.println(sum);
 
+        }
         return sum;
+    }
+
+    boolean constraintCheck(int vid) {
+        double weight = 0.0;
+        LinkedList<HalfTask> list = taskList[vid];
+        double capacity = vehicles.get(vid).capacity();
+
+        boolean[] pickedUp = new boolean[tasks.size()];
+        Arrays.fill(pickedUp, Boolean.FALSE);
+        for (int i=0; i < list.size(); i++) {
+            HalfTask t = list.get(i);
+            if (t.type == 0) {
+                weight += t.task.weight;
+                pickedUp[t.task.id] = true;
+            } else {
+                weight -= t.task.weight;
+                if (pickedUp[t.task.id] == false)
+                    return false;
+            }
+            //System.out.println(weight+" " +capacity);
+            if (weight > capacity)
+                return false;
+
+        }
+        return true;
     }
 
 
     @Override
     @SuppressWarnings("unchecked")
     public State clone()  {
-        int[] timeNew = time.clone();
         int[] vehNew = vehicle.clone();
         int[][] wv = null;
         if (weightMatrix != null)
             wv = weightMatrix.clone();
 
-        LinkedList<Task>[] tlnew = taskList.clone();
+        LinkedList<HalfTask>[] tlnew = taskList.clone();
 
 
         for (int i=0; i < taskList.length; i++) {
-            tlnew[i] = (LinkedList<Task>)taskList[i].clone();
+            tlnew[i] = (LinkedList<HalfTask>)taskList[i].clone();
 
         }
-        return new State(tlnew, vehNew, timeNew, wv);
+        return new State(tlnew, vehNew, wv);
     }
     @Override
     public int hashCode() {
         int prime = 11;
         int rv = 3;
         for (int i=0; i < taskList.length; i++)
-            for (Task t: taskList[i]) {
-                rv += rv*prime + t.id*(i+1);
+            for (HalfTask t: taskList[i]) {
+                rv += rv*prime + (t.id*2 +t.type)*(i+1);
             }
         return rv;
     }
